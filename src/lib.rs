@@ -3,7 +3,11 @@
 #[macro_use]
 extern crate bitflags;
 
+#[macro_use]
+extern crate nom;
+
 mod util;
+mod parser;
 use util::{U8ToU16, U8ToU32, U32ToU8, U16ToU8, U32ToU16};
 
 /// TCP Control flags, Only 9 bits needed
@@ -35,6 +39,8 @@ bitflags! {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TcpOpts {
+    END,
+    NOP,
     MSS(u16),           // Maximum segment size, length should be 4 (SYN only)
     WindowScale(u8),    // Window scale, length should be 3 (SYN only)
     SAckPermitted,      // Selective ACK permitted (SYN only)
@@ -44,7 +50,7 @@ pub enum TcpOpts {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TcpSegment {
-    pub pseudo_header   : IPv4PseudoHeader, // IPv4/IPv6 pseudo header
+    //pub pseudo_header   : IPv4PseudoHeader, // IPv4/IPv6 pseudo header
     pub src_port        : u16,              // source port  
     pub dest_port       : u16,              // dest port
     pub seq_num         : u32,              // sequence number
@@ -187,8 +193,15 @@ fn parse_options<'a>(options: &mut Iterator<Item=&'a u8>) -> Result<Vec<TcpOpts>
 }
 
 impl TcpSegment {
+    pub fn parse<T : AsRef<[u8]>>(segment : T) -> TcpSegment {
+        match parser::parse(segment.as_ref()) {
+            nom::IResult::Done(_, seg) => seg,
+            r => panic!("{:?}", r)
+        }
+
+    }
     /// Assumed that the segment contains the pseudo-header from IPv4
-    pub fn parse<T : AsRef<[u8]>>(header: IPv4PseudoHeader, segment : T) -> Result<TcpSegment, TcpParseError> {
+    pub fn parse_old<T : AsRef<[u8]>>(segment : T) -> Result<TcpSegment, TcpParseError> {
         let segment : &[u8] = segment.as_ref();
         let mut segment_iter = segment.iter();
 
@@ -217,7 +230,7 @@ impl TcpSegment {
                 let data = segment_iter.cloned().collect::<Vec<u8>>();
 
                 let parsed = TcpSegment{
-                    pseudo_header   : header,
+                    //pseudo_header   : header,
                     src_port        : src_port,
                     dest_port       : dest_port,
                     seq_num         : seq_num,
@@ -237,7 +250,7 @@ impl TcpSegment {
         }
     }
 
-    pub fn calculate_checksum(&self) -> u16 {
+    pub fn calculate_checksum(&self, pseudo_header : IPv4PseudoHeader) -> u16 {
         let add_u16 = |sum: &mut u32, x: u16|{
             *sum = *sum + x as u32;
             if (*sum & 0x80000000) != 0 {
@@ -253,10 +266,10 @@ impl TcpSegment {
         let mut checksum : u32 = 0;
         let sum : &mut u32 = &mut checksum;
 
-        add_u32(sum, self.pseudo_header.source_addr);
-        add_u32(sum, self.pseudo_header.dest_addr);
-        add_u16(sum, self.pseudo_header.protocol as u16);
-        add_u16(sum, self.pseudo_header.tcp_len);
+        add_u32(sum, pseudo_header.source_addr);
+        add_u32(sum, pseudo_header.dest_addr);
+        add_u16(sum, pseudo_header.protocol as u16);
+        add_u16(sum, pseudo_header.tcp_len);
         add_u16(sum, self.src_port);
         add_u16(sum, self.dest_port);
         add_u32(sum, self.seq_num);
@@ -306,9 +319,10 @@ mod test {
             tcp_len     : tcp_data.len() as u16
         };
         
-        let parse_res =  TcpSegment::parse(header, tcp_data);
-        assert!(parse_res.is_ok());
-        let segment = parse_res.unwrap();
+        let parse_res =  TcpSegment::parse(tcp_data);
+        //assert!(parse_res.is_ok());
+        //let segment = parse_res.unwrap();
+        let segment = parse_res;
         assert_eq!(segment.src_port, 38772);
         assert_eq!(segment.dest_port, 80);
         assert_eq!(segment.window, 24800);
@@ -326,6 +340,7 @@ mod test {
                 time: 19991160,
                 echo: 0
             },
+            TcpOpts::NOP,
             TcpOpts::WindowScale(7)
         ];
 
@@ -335,7 +350,7 @@ mod test {
             assert_eq!(a, b);
         }
 
-        assert_eq!(segment.calculate_checksum(), segment.checksum);
+        assert_eq!(segment.calculate_checksum(header), segment.checksum);
     }
 
 
