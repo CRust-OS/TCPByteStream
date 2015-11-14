@@ -48,6 +48,68 @@ pub enum TcpOpts {
     TimeStamp { time: u32, echo: u32 }      // Timestamp and echo of prev timestamp, length should be 10
 }
 
+impl TcpOpts {
+    fn opt_flag(&self) -> TcpOptFlags {
+        match self {
+            &TcpOpts::END => END,
+            &TcpOpts::NOP => NOP,
+            &TcpOpts::MSS(_) => MSS,
+            &TcpOpts::WindowScale(_) => SCALE,
+            &TcpOpts::SAckPermitted => SACKPERM,
+            &TcpOpts::SAck(_) => SACK,
+            &TcpOpts::TimeStamp{time : _ , echo: _} => TIME
+        }
+    }
+}
+
+trait TcpOptStream {
+    fn as_u16_stream(&self) -> Vec<u16>;
+}
+
+impl TcpOptStream for Vec<TcpOpts> {
+    fn as_u16_stream(&self) -> Vec<u16> {
+        let mut data = Vec::with_capacity(self.len()*4);    // Easier to allocate a larger buffer than needed; reduce allocations
+
+        for opt in self.iter() {
+            data.push(opt.opt_flag().bits());
+            match opt {
+                &TcpOpts::END | &TcpOpts::NOP => {},
+                &TcpOpts::MSS(mss) => {
+                    data.push(0x04);
+                    data.extend(mss.to_u8().iter());
+                },
+                &TcpOpts::WindowScale(scale) => {
+                    data.push(0x03);
+                    data.push(scale);
+                },
+                &TcpOpts::SAckPermitted => {
+                    data.push(0x02);
+                }
+                &TcpOpts::SAck(ref ptrs) => {
+                    data.push((ptrs.len() as u8)*8 + 2);
+                    for &(ref a, ref b) in ptrs.iter() {
+                        data.extend(a.to_u8().iter());
+                        data.extend(b.to_u8().iter());
+                    }
+                },
+                &TcpOpts::TimeStamp{time : ref t, echo: ref e} => {
+                    data.push(0x0A);
+                    data.extend(t.to_u8().iter());
+                    data.extend(e.to_u8().iter());
+                }
+            }
+        }
+
+        data.chunks(2).map(|chunk| {
+            if chunk.len() == 1 {
+                (chunk[0] as u16) << 8
+            } else {
+                ((chunk[0] as u16) << 8) | (chunk[1] as u16)
+            }
+        }).collect()
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TcpSegment {
     //pub pseudo_header   : IPv4PseudoHeader, // IPv4/IPv6 pseudo header
@@ -61,7 +123,7 @@ pub struct TcpSegment {
     pub checksum        : u16,              // TCP checksum
     pub urg_ptr         : u16,              // Offset from seq num indicating the last urgen data byte
     pub options         : Vec<TcpOpts>,     // TCP Options
-        options_orig    : Vec<u8>,
+    //options_orig    : Vec<u8>,
     pub data            : Vec<u8>           // application layer data
 }
 
@@ -84,115 +146,11 @@ pub enum TcpParseError {
 }
 
 
-fn parse_options<'a>(options: &mut Iterator<Item=&'a u8>) -> Result<Vec<TcpOpts>, TcpParseError> {
-    let mut opts = Vec::new();
-    //let mut iter = options.into_iter().enumerate();
-
-    let mut iter = options;
-    //while let Some((i, &byte)) = iter.next() {
-    while let Some(&byte) = iter.next() {
-        if let Some(opt) = TcpOptFlags::from_bits(byte) {
-            match opt {
-                END => {},
-                NOP => {},
-                MSS => {
-                    if let Some(&len) = iter.next() {
-                        if len != 4 {
-                            return Err(TcpParseError::InvalidOption)
-                        } else {
-                            let a = iter.next();
-                            let b = iter.next();
-                            match (a, b) {
-                                (Some(&a), Some(&b)) => {
-                                    let mss = [a,b].iter().to_u16().unwrap();
-                                    opts.push(TcpOpts::MSS(mss));
-                                }, 
-                                _ => {
-                                    return Err(TcpParseError::InvalidOption)
-                                }
-                            }
-                        }
-                    } else {
-                        return Err(TcpParseError::InvalidOption)
-                    }
-                },
-                SCALE => {
-                    if let Some(&len) = iter.next() {
-                        if len != 3 {
-                            return Err(TcpParseError::InvalidOption)
-                        } else {
-                            if let Some(&scale) = iter.next(){
-                                opts.push(TcpOpts::WindowScale(scale));
-                            } else {
-                                return Err(TcpParseError::InvalidOption)
-                            }
-                        }
-                    }
-                },
-                SACKPERM => {
-                    if let Some(&len) = iter.next() {
-                        if len != 2 {
-                            return Err(TcpParseError::InvalidOption);
-                        }
-                        opts.push(TcpOpts::SAckPermitted);
-                    }
-                },
-                SACK => {
-                    if let Some(&len) = iter.next() {
-                        if len % 8 != 2 || (len-2)/8 > 4 || (len-2)/8 < 1 {
-                            return Err(TcpParseError::InvalidOption);
-                        } else {
-                            let mut left = len - 2;
-                            let mut ptrs = Vec::new();
-
-                            while left > 0 {
-                                let data = {
-                                    let mut data = Vec::new();
-                                    for _ in 0..8 {
-                                        if let Some(&x) = iter.next() {
-                                            data.push(x);
-                                        } else {
-                                            return Err(TcpParseError::InvalidOption);
-                                        }
-                                    };
-                                    data
-                                };
-                                let (begin, end) = data.split_at(4);
-                                ptrs.push((begin.iter().to_u32().unwrap(), end.iter().to_u32().unwrap()));
-
-                                left = left - 8;
-                            }
-                            opts.push(TcpOpts::SAck(ptrs));
-                        }
-
-                    }
-                },
-                TIME => {
-                    if let Some(&len) = iter.next() {
-                        if len != 10 {
-                            return Err(TcpParseError::InvalidOption);
-                        } else {
-                            let data = iter.take(8).cloned().collect::<Vec<u8>>();
-                            let (timestamp, echo) = data.split_at(4);
-                            opts.push(TcpOpts::TimeStamp{ 
-                                time : timestamp.iter().to_u32().unwrap(), 
-                                echo: echo.iter().to_u32().unwrap() 
-                            });
-                        }
-                    }
-                },
-                _ => {
-                    return Err(TcpParseError::InvalidOption)
-                }
-            }
-        } else {
-            return Err(TcpParseError::InvalidOption)
-        }
-    };
-    Ok(opts)
-}
 
 impl TcpSegment {
+
+    /// Parse the given byte stream into a TcpSegment. At the moment, panicks on failure
+    /// TODO: Improve error messages
     pub fn parse<T : AsRef<[u8]>>(segment : T) -> TcpSegment {
         match parser::parse(segment.as_ref()) {
             nom::IResult::Done(_, seg) => seg,
@@ -200,55 +158,54 @@ impl TcpSegment {
         }
 
     }
-    /// Assumed that the segment contains the pseudo-header from IPv4
-    pub fn parse_old<T : AsRef<[u8]>>(segment : T) -> Result<TcpSegment, TcpParseError> {
-        let segment : &[u8] = segment.as_ref();
-        let mut segment_iter = segment.iter();
+    //pub fn parse_old<T : AsRef<[u8]>>(segment : T) -> Result<TcpSegment, TcpParseError> {
+    //let segment : &[u8] = segment.as_ref();
+    //let mut segment_iter = segment.iter();
 
 
-        if segment.len() < 20 {     // 20 for TCP segment
-            Err(TcpParseError::InvalidLength)
-        } else {
-            let src_port : u16 = segment_iter.by_ref().take(2).to_u16().unwrap();
-            let dest_port : u16 = segment_iter.by_ref().take(2).to_u16().unwrap();
-            let seq_num : u32 = segment_iter.by_ref().take(4).to_u32().unwrap();
-            let ack_num : u32 = segment_iter.by_ref().take(4).to_u32().unwrap();
-            let b12 : u8 = *segment_iter.next().unwrap();
-            if ((b12 & 0xF0) >> 2) < 5 {
-                Err(TcpParseError::InvalidDataOffset)
-            } else if (b12 & 0b00001110) != 0 {
-                Err(TcpParseError::InvalidReserved)
-            } else {
-                let data_offset = (b12 & 0xF0) >> 4;
-                let flags = [b12, *segment_iter.next().unwrap()].iter().to_u16().unwrap() & 0x01FF;
-                let window_size = segment_iter.by_ref().take(2).to_u16().unwrap();
-                let checksum = segment_iter.by_ref().take(2).to_u16().unwrap();
-                let urgent_ptr = segment_iter.by_ref().take(2).to_u16().unwrap();
-                let options_orig = segment_iter.by_ref().take(4*data_offset as usize - 20).cloned().collect::<Vec<u8>>();
-                //let options = try!(parse_options(&mut segment_iter.by_ref().take(4*data_offset as usize - 20)));
-                let options = try!(parse_options(&mut options_orig.clone().iter()));
-                let data = segment_iter.cloned().collect::<Vec<u8>>();
+    //if segment.len() < 20 {     20 for TCP segment
+    //Err(TcpParseError::InvalidLength)
+    //} else {
+    //let src_port : u16 = segment_iter.by_ref().take(2).to_u16().unwrap();
+    //let dest_port : u16 = segment_iter.by_ref().take(2).to_u16().unwrap();
+    //let seq_num : u32 = segment_iter.by_ref().take(4).to_u32().unwrap();
+    //let ack_num : u32 = segment_iter.by_ref().take(4).to_u32().unwrap();
+    //let b12 : u8 = *segment_iter.next().unwrap();
+    //if ((b12 & 0xF0) >> 2) < 5 {
+    //Err(TcpParseError::InvalidDataOffset)
+    //} else if (b12 & 0b00001110) != 0 {
+    //Err(TcpParseError::InvalidReserved)
+    //} else {
+    //let data_offset = (b12 & 0xF0) >> 4;
+    //let flags = [b12, *segment_iter.next().unwrap()].iter().to_u16().unwrap() & 0x01FF;
+    //let window_size = segment_iter.by_ref().take(2).to_u16().unwrap();
+    //let checksum = segment_iter.by_ref().take(2).to_u16().unwrap();
+    //let urgent_ptr = segment_iter.by_ref().take(2).to_u16().unwrap();
+    //let options_orig = segment_iter.by_ref().take(4*data_offset as usize - 20).cloned().collect::<Vec<u8>>();
+    //let options = try!(parse_options(&mut segment_iter.by_ref().take(4*data_offset as usize - 20)));
+    //let options = try!(parse_options(&mut options_orig.clone().iter()));
+    //let data = segment_iter.cloned().collect::<Vec<u8>>();
 
-                let parsed = TcpSegment{
-                    //pseudo_header   : header,
-                    src_port        : src_port,
-                    dest_port       : dest_port,
-                    seq_num         : seq_num,
-                    ack_num         : ack_num,
-                    data_off        : data_offset,
-                    ctrl_flags      : flags,
-                    window          : window_size,
-                    checksum        : checksum,
-                    urg_ptr         : urgent_ptr,
-                    options         : options,
-                    options_orig    : options_orig,
-                    data            : data
-                };
+    //let parsed = TcpSegment{
+    //pseudo_header   : header,
+    //src_port        : src_port,
+    //dest_port       : dest_port,
+    //seq_num         : seq_num,
+    //ack_num         : ack_num,
+    //data_off        : data_offset,
+    //ctrl_flags      : flags,
+    //window          : window_size,
+    //checksum        : checksum,
+    //urg_ptr         : urgent_ptr,
+    //options         : options,
+    //options_orig    : options_orig,
+    //data            : data
+    //};
 
-                Ok(parsed)
-            }
-        }
-    }
+    //Ok(parsed)
+    //}
+    //}
+    //}
 
     pub fn calculate_checksum(&self, pseudo_header : IPv4PseudoHeader) -> u16 {
         let add_u16 = |sum: &mut u32, x: u16|{
@@ -278,13 +235,9 @@ impl TcpSegment {
         add_u16(sum, self.window);
         add_u16(sum, self.urg_ptr);
 
-        for chunk in self.options_orig.chunks(2) {
-            if chunk.len() == 1 {
-                add_u16(sum, (chunk[0] as u16) << 8);
-            } else {
-                add_u16(sum, chunk.iter().to_u16().unwrap())
-            }
-        };
+        for x in self.options.as_u16_stream() {
+            add_u16(sum, x);
+        }
 
         for chunk in self.data.chunks(2) {
             if chunk.len() == 1 {
@@ -307,7 +260,7 @@ impl TcpSegment {
 mod test {
     use super::{TcpSegment,IPv4PseudoHeader,TcpCTRL, TcpOpts, SYN, ACK}; 
     use util::{U8ToU16, U8ToU32, U32ToU8, U16ToU8, U32ToU16};
-    
+
     #[test]
     fn check_parse_ok_1(){
         let tcp_data : Vec<u8> = vec![151, 116, 0, 80, 4, 12, 185, 160, 0, 0, 0, 0, 160, 2, 96, 224, 81, 40, 0, 0, 2, 4, 4, 216, 4, 2, 8, 10, 1, 49, 10, 120, 0, 0, 0, 0, 1, 3, 3, 7];
@@ -318,7 +271,7 @@ mod test {
             protocol     : 6,
             tcp_len     : tcp_data.len() as u16
         };
-        
+
         let parse_res =  TcpSegment::parse(tcp_data);
         //assert!(parse_res.is_ok());
         //let segment = parse_res.unwrap();
@@ -332,7 +285,7 @@ mod test {
         assert_eq!(segment.ack_num, 0x00000000);
         assert_eq!(segment.data_off, 10);
         assert_eq!(segment.urg_ptr, 0);
-        
+
         let opts_expected = vec![
             TcpOpts::MSS(1240),
             TcpOpts::SAckPermitted,

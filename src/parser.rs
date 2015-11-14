@@ -20,7 +20,6 @@ named!(data_flags<DataOffsetFlags>, chain!(
     }
 ));
 
-
 named!(parse_end<TcpOpts>, chain!(
             tag!(&[END.bits()]),
     ||{
@@ -101,7 +100,6 @@ named!(pub parse<&[u8], TcpSegment>, chain!(
         window:         be_u16  ~
         checksum:       be_u16  ~
         urg_ptr:        be_u16  ~
-        options_orig:   peek!(take!((4 * offset_flags.data_off as usize) - 20)) ~
         options:        flat_map!(take!((4*offset_flags.data_off as usize) - 20), parse_opts)             ~
         data:           rest,
         ||{
@@ -116,7 +114,6 @@ named!(pub parse<&[u8], TcpSegment>, chain!(
                 checksum:       checksum,
                 urg_ptr:        urg_ptr,
                 options:        options,
-                options_orig:   options_orig.iter().cloned().collect(),
                 data:           data.iter().cloned().collect()
             }
         }
