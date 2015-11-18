@@ -1,4 +1,4 @@
-use super::{TcpSegment,IPv4PseudoHeader,TcpCTRL, TcpOpts, SYN, ACK}; 
+use super::{TcpSegment,IPv4PseudoHeader,TcpCTRL, TcpOpts, SYN, ACK, FIN}; 
 use util::{U8ToU16, U8ToU32, U32ToU8, U16ToU8, U32ToU16};
 
 #[test]
@@ -47,7 +47,7 @@ fn test_syn(){
 }
 
 #[test]
-fn test_syncack(){
+fn test_sync_ack(){
     let tcp_data : Vec<u8> = vec![0x00, 0x50, 0x96, 0xb6, 0xa5, 0xca, 
         0x60, 0x22, 0xf2, 0xf4, 0x03, 0x1d, 0xa0, 0x12,
         0x71, 0x20, 0xe9, 0x7a, 0x00, 0x00, 0x02, 0x04,
@@ -87,4 +87,46 @@ fn test_syncack(){
     }
 
     assert_eq!(segment.calculate_checksum(header), segment.checksum);
+}
+
+#[test]
+fn test_fin_ack(){
+    let tcp_data: Vec<u8> =vec![0xa2, 0x30, 0x00, 0x50, 0x30, 0xf2,
+                                0xad, 0x35, 0xce, 0x1b, 0x58, 0x05, 0x80, 0x11,
+                                0x01, 0xff, 0x8b, 0xbc, 0x00, 0x00, 0x01, 0x01,
+                                0x08, 0x0a, 0x01, 0x3d, 0x39, 0x49, 0x82, 0xe8,
+                                0x29, 0xdf];
+
+    let header = IPv4PseudoHeader {
+        source_addr: [142, 157, 41, 43].iter().to_u32().unwrap(),
+        dest_addr: [206, 167, 212, 121].iter().to_u32().unwrap(),
+        protocol: 6,
+        tcp_len: tcp_data.len() as u16
+    };
+
+    let segment = TcpSegment::parse(tcp_data);
+    assert_eq!(segment.src_port, 41520);
+    assert_eq!(segment.dest_port, 80);
+    assert_eq!(segment.window, 511);
+    assert_eq!(TcpCTRL::from_bits(segment.ctrl_flags).unwrap(), ACK | FIN);
+    assert_eq!(segment.checksum, 0x8bbc);
+    assert_eq!(segment.seq_num, 0x30_F2_AD_35);
+    assert_eq!(segment.ack_num, 0xCE_1B_58_05);
+    assert_eq!(segment.data_off, 8);
+    assert_eq!(segment.urg_ptr, 0);
+
+    let opts_expected = vec![
+        TcpOpts::NOP,
+        TcpOpts::NOP,
+        TcpOpts::TimeStamp{time: 20789577, echo: 2196253151}
+    ];
+
+    assert_eq!(segment.options.len(), opts_expected.len());
+    for (ref a, ref b) in opts_expected.iter().zip(segment.options.iter()) {
+        assert_eq!(a, b);
+    }
+
+    assert_eq!(segment.calculate_checksum(header), segment.checksum);
+
+
 }
