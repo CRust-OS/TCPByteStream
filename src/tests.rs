@@ -1,4 +1,4 @@
-use super::{TcpSegment,IPv4PseudoHeader,TcpCTRL, TcpOpts, SYN, ACK, FIN}; 
+use super::{TcpSegment,IPv4PseudoHeader,TcpCTRL, TcpOpts, SYN, ACK, FIN, RST}; 
 use util::{U8ToU16, U8ToU32, U32ToU8, U16ToU8, U32ToU16};
 
 #[test]
@@ -127,6 +127,44 @@ fn test_fin_ack(){
     }
 
     assert_eq!(segment.calculate_checksum(header), segment.checksum);
+}
 
+#[test]
+fn test_ack_rst(){
+    let tcp_data : Vec<u8> = vec![0x97, 0x00, 0x01, 0xbb, 0xcc, 0x0f,
+                                  0x70, 0xdb, 0x73, 0xa3, 0x00, 0xe0, 0x80, 0x14,
+                                  0x01, 0x29, 0xb1, 0x6c, 0x00, 0x00, 0x01, 0x01,
+                                  0x08, 0x0a, 0x01, 0xb5, 0xf3, 0x30, 0xb1, 0xd7,
+                                  0xa2, 0xdc];
 
+    let header = IPv4PseudoHeader {
+        source_addr:    [192, 168, 0, 109].iter().to_u32().unwrap(),
+        dest_addr:      [96, 22, 15, 52].iter().to_u32().unwrap(),
+        protocol:       6,
+        tcp_len:        tcp_data.len() as u16
+    };
+
+    let segment = TcpSegment::parse(tcp_data);
+    assert_eq!(segment.src_port, 38656);
+    assert_eq!(segment.dest_port, 443);
+    assert_eq!(segment.window, 297);
+    assert_eq!(TcpCTRL::from_bits(segment.ctrl_flags).unwrap(), RST | ACK);
+    assert_eq!(segment.checksum, 0xb16c);
+    assert_eq!(segment.seq_num, 0xCC_0F_70_DB);
+    assert_eq!(segment.ack_num, 0x73_A3_00_E0);
+    assert_eq!(segment.data_off, 8);
+    assert_eq!(segment.urg_ptr, 0);
+
+    let opts_expected = vec![
+        TcpOpts::NOP,
+        TcpOpts::NOP,
+        TcpOpts::TimeStamp{time: 28701488, echo: 2983699164}
+    ];
+
+    assert_eq!(segment.options.len(), opts_expected.len());
+    for (ref a, ref b) in opts_expected.iter().zip(segment.options.iter()) {
+        assert_eq!(a, b);
+    }
+
+    assert_eq!(segment.calculate_checksum(header), segment.checksum);
 }
