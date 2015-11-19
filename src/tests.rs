@@ -1,6 +1,9 @@
 use super::{TcpSegment,IPv4PseudoHeader,TcpCTRL, TcpOpts, SYN, ACK, FIN, RST}; 
 use util::{U8ToU16, U8ToU32, U32ToU8, U16ToU8, U32ToU16};
 
+extern crate pcap;
+extern crate test;
+
 #[test]
 fn test_syn(){
     let tcp_data : Vec<u8> = vec![151, 116, 0, 80, 4, 12, 185, 160, 0, 0, 0, 0, 160, 2, 96, 224, 81, 40, 0, 0, 2, 4, 4, 216, 4, 2, 8, 10, 1, 49, 10, 120, 0, 0, 0, 0, 1, 3, 3, 7];
@@ -167,4 +170,10 @@ fn test_ack_rst(){
     }
 
     assert_eq!(segment.calculate_checksum(header), segment.checksum);
+}
+
+#[bench]
+fn bench_pcap(b: &mut Bencher) {
+    let mut cap = pcap::Capture::from_file("100_packets.pcap").unwrap();
+    b.iter(|| TODO);
 }
