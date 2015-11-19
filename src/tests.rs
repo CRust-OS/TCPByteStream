@@ -12,7 +12,7 @@ fn test_syn(){
         tcp_len     : tcp_data.len() as u16
     };
 
-    let parse_res =  TcpSegment::parse(tcp_data);
+    let parse_res =  TcpSegment::parse(&tcp_data);
     //assert!(parse_res.is_ok());
     //let segment = parse_res.unwrap();
     let segment = parse_res;
@@ -44,6 +44,7 @@ fn test_syn(){
     }
 
     assert_eq!(segment.calculate_checksum(header), segment.checksum);
+    assert_eq!(segment.as_bytestream(), tcp_data);
 }
 
 #[test]
@@ -62,7 +63,7 @@ fn test_sync_ack(){
         tcp_len:        tcp_data.len() as u16
     };
 
-    let segment = TcpSegment::parse(tcp_data);
+    let segment = TcpSegment::parse(&tcp_data);
     assert_eq!(segment.src_port, 80);
     assert_eq!(segment.dest_port, 38582);
     assert_eq!(segment.window, 28960);
@@ -87,6 +88,7 @@ fn test_sync_ack(){
     }
 
     assert_eq!(segment.calculate_checksum(header), segment.checksum);
+    assert_eq!(segment.as_bytestream(), tcp_data);
 }
 
 #[test]
@@ -104,7 +106,7 @@ fn test_fin_ack(){
         tcp_len: tcp_data.len() as u16
     };
 
-    let segment = TcpSegment::parse(tcp_data);
+    let segment = TcpSegment::parse(&tcp_data);
     assert_eq!(segment.src_port, 41520);
     assert_eq!(segment.dest_port, 80);
     assert_eq!(segment.window, 511);
@@ -127,6 +129,7 @@ fn test_fin_ack(){
     }
 
     assert_eq!(segment.calculate_checksum(header), segment.checksum);
+    assert_eq!(segment.as_bytestream(), tcp_data);
 }
 
 #[test]
@@ -144,7 +147,7 @@ fn test_ack_rst(){
         tcp_len:        tcp_data.len() as u16
     };
 
-    let segment = TcpSegment::parse(tcp_data);
+    let segment = TcpSegment::parse(&tcp_data);
     assert_eq!(segment.src_port, 38656);
     assert_eq!(segment.dest_port, 443);
     assert_eq!(segment.window, 297);
@@ -167,4 +170,5 @@ fn test_ack_rst(){
     }
 
     assert_eq!(segment.calculate_checksum(header), segment.checksum);
+    assert_eq!(segment.as_bytestream(), tcp_data);
 }

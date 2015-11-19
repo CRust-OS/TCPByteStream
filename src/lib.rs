@@ -143,8 +143,6 @@ pub enum TcpParseError {
     InvalidOption
 }
 
-
-
 impl TcpSegment {
 
     /// Parse the given byte stream into a TcpSegment. At the moment, panicks on failure
@@ -154,7 +152,6 @@ impl TcpSegment {
             nom::IResult::Done(_, seg) => seg,
             r => panic!("{:?}", r)
         }
-
     }
 
     pub fn calculate_checksum(&self, pseudo_header : IPv4PseudoHeader) -> u16 {
@@ -205,4 +202,22 @@ impl TcpSegment {
 
         !((*sum & 0x0000FFFF) as u16)
     }
+
+    pub fn as_bytestream(&self) -> Vec<u8> {
+        let mut data = Vec::with_capacity(self.data.len() + (self.data_off as usize)*4);
+        data.extend(self.src_port.to_u8().iter());
+        data.extend(self.dest_port.to_u8().iter());
+        data.extend(self.seq_num.to_u8().iter());
+        data.extend(self.ack_num.to_u8().iter());
+        data.extend((((self.data_off as u16) << 12) | (self.ctrl_flags & 0x1FF)).to_u8().iter());
+        data.extend(self.window.to_u8().iter());
+        data.extend(self.checksum.to_u8().iter());
+        data.extend(self.urg_ptr.to_u8().iter());
+        for x in self.options.as_u16_stream() {
+            data.extend(x.to_u8().iter())
+        };
+        data.extend(self.data.iter());
+        data
+    }
 }
+
