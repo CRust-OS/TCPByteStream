@@ -113,7 +113,6 @@ impl TcpOptStream for Vec<TcpOpts> {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TcpSegment {
-    //pub pseudo_header   : IPv4PseudoHeader, // IPv4/IPv6 pseudo header
     pub src_port        : u16,              // source port  
     pub dest_port       : u16,              // dest port
     pub seq_num         : u32,              // sequence number
@@ -124,7 +123,6 @@ pub struct TcpSegment {
     pub checksum        : u16,              // TCP checksum
     pub urg_ptr         : u16,              // Offset from seq num indicating the last urgen data byte
     pub options         : Vec<TcpOpts>,     // TCP Options
-    //options_orig    : Vec<u8>,
     pub data            : Vec<u8>           // application layer data
 }
 
@@ -142,7 +140,6 @@ pub enum TcpParseError {
     InvalidLength,
     InvalidReserved,
     InvalidDataOffset,
-    InvalidChecksum{ expected : u16, actual : u16},
     InvalidOption
 }
 
@@ -159,54 +156,6 @@ impl TcpSegment {
         }
 
     }
-    //pub fn parse_old<T : AsRef<[u8]>>(segment : T) -> Result<TcpSegment, TcpParseError> {
-    //let segment : &[u8] = segment.as_ref();
-    //let mut segment_iter = segment.iter();
-
-
-    //if segment.len() < 20 {     20 for TCP segment
-    //Err(TcpParseError::InvalidLength)
-    //} else {
-    //let src_port : u16 = segment_iter.by_ref().take(2).to_u16().unwrap();
-    //let dest_port : u16 = segment_iter.by_ref().take(2).to_u16().unwrap();
-    //let seq_num : u32 = segment_iter.by_ref().take(4).to_u32().unwrap();
-    //let ack_num : u32 = segment_iter.by_ref().take(4).to_u32().unwrap();
-    //let b12 : u8 = *segment_iter.next().unwrap();
-    //if ((b12 & 0xF0) >> 2) < 5 {
-    //Err(TcpParseError::InvalidDataOffset)
-    //} else if (b12 & 0b00001110) != 0 {
-    //Err(TcpParseError::InvalidReserved)
-    //} else {
-    //let data_offset = (b12 & 0xF0) >> 4;
-    //let flags = [b12, *segment_iter.next().unwrap()].iter().to_u16().unwrap() & 0x01FF;
-    //let window_size = segment_iter.by_ref().take(2).to_u16().unwrap();
-    //let checksum = segment_iter.by_ref().take(2).to_u16().unwrap();
-    //let urgent_ptr = segment_iter.by_ref().take(2).to_u16().unwrap();
-    //let options_orig = segment_iter.by_ref().take(4*data_offset as usize - 20).cloned().collect::<Vec<u8>>();
-    //let options = try!(parse_options(&mut segment_iter.by_ref().take(4*data_offset as usize - 20)));
-    //let options = try!(parse_options(&mut options_orig.clone().iter()));
-    //let data = segment_iter.cloned().collect::<Vec<u8>>();
-
-    //let parsed = TcpSegment{
-    //pseudo_header   : header,
-    //src_port        : src_port,
-    //dest_port       : dest_port,
-    //seq_num         : seq_num,
-    //ack_num         : ack_num,
-    //data_off        : data_offset,
-    //ctrl_flags      : flags,
-    //window          : window_size,
-    //checksum        : checksum,
-    //urg_ptr         : urgent_ptr,
-    //options         : options,
-    //options_orig    : options_orig,
-    //data            : data
-    //};
-
-    //Ok(parsed)
-    //}
-    //}
-    //}
 
     pub fn calculate_checksum(&self, pseudo_header : IPv4PseudoHeader) -> u16 {
         let add_u16 = |sum: &mut u32, x: u16|{
@@ -215,6 +164,7 @@ impl TcpSegment {
                 *sum = (*sum & 0xFFFF) + *sum >> 16;
             }
         };
+
         let add_u32 = |sum : &mut u32, x: u32|{
             let (a, b) = x.to_u16();
             add_u16(sum, a);
@@ -256,5 +206,3 @@ impl TcpSegment {
         !((*sum & 0x0000FFFF) as u16)
     }
 }
-
-

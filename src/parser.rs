@@ -1,6 +1,5 @@
 use nom::{IResult, rest, be_u8, be_u16, be_u32, eof};
 use nom::IResult::*;
-
 use super::{TcpOpts, TcpSegment, TcpParseError, END, NOP, MSS, SCALE, SACKPERM, SACK, TIME};
 
 #[derive(Debug)]
@@ -8,7 +7,6 @@ struct DataOffsetFlags{
     data_off: u8,
     flags   : u16
 }
-
 named!(data_flags<DataOffsetFlags>, chain!(
     data : bits!(separated_pair!(take_bits!(u8, 4), tag_bits!(u8, 3, 0b000), take_bits!(u8, 1))) ~
     flags: be_u8,
@@ -19,7 +17,6 @@ named!(data_flags<DataOffsetFlags>, chain!(
         }
     }
 ));
-
 named!(parse_end<TcpOpts>, chain!(
             tag!(&[END.bits()]),
     ||{
