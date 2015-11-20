@@ -5,9 +5,7 @@ extern crate bitflags;
 #[macro_use]
 extern crate nom;
 
-#[cfg(test)]
-mod tests;
-mod util;
+pub mod util;
 mod parser;
 use util::{U8ToU16, U8ToU32, U32ToU8, U16ToU8, U32ToU16};
 
