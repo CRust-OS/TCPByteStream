@@ -1,6 +1,7 @@
 use nom::{IResult, rest, be_u8, be_u16, be_u32, eof};
 use nom::IResult::*;
 use super::{TcpOpts, TcpSegment, TcpParseError, END, NOP, MSS, SCALE, SACKPERM, SACK, TIME};
+use std::vec::Vec;
 
 #[derive(Debug)]
 struct DataOffsetFlags{

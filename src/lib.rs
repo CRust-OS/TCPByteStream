@@ -1,9 +1,29 @@
+#![cfg_attr(feature = "core", feature(no_std))]
+#![cfg_attr(feature = "core", feature(collections))]
+#![cfg_attr(feature = "core", no_std)]
+
 #![allow(unused_imports)]
 #[macro_use]
 extern crate bitflags;
 
 #[macro_use]
 extern crate nom;
+
+#[cfg(feature = "core")]
+extern crate collections;
+
+#[cfg(feature = "core")]
+mod std {
+    #[macro_use]
+    pub use core::{fmt, iter, option, ops, slice, mem};
+    pub use collections::{boxed, vec, string};
+    pub mod prelude {
+        pub use core::prelude as v1;
+    }
+}
+
+use std::vec::Vec;
+
 
 pub mod util;
 mod parser;

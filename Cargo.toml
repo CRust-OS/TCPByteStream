@@ -9,5 +9,13 @@ readme = "README.md"
 
 [dependencies]
 bitflags = "~0.3.2"
-nom = "~0.5.0"
+
+[dependencies.nom]
+version = "*"
+features =["core"]
+
+[dev-dependencies]
 pcap = "~0.5.0"
+
+[features]
+core=[]
