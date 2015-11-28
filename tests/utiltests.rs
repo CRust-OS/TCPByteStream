@@ -66,6 +66,7 @@ mod test_u32_to_u8 {
 
 mod test_pcap_parse {
     use tcp_byte_stream::util::parse_pcap;
+    use tcp_byte_stream::TcpSegment;
 
     #[test]
     fn test_parse_packet_1() {
@@ -76,8 +77,7 @@ mod test_pcap_parse {
                     0x00, 0x19, 0x79, 0x43, 0xd3, 0xbb, 0x88, 0xa4, 0x36, 
                     0xd2, 0x50, 0x18, 0xfe, 0x0a, 0xc3, 0xfc, 0x00, 0x00];
         
-        let segment = parse_pcap(&data);
-        
+        let segment =  TcpSegment::parse(&data[0x22..]);
         assert_eq!(segment.src_port, 1760);
         assert_eq!(segment.dest_port, 25);
         assert_eq!(segment.seq_num, 2034488251);
