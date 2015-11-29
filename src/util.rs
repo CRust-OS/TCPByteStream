@@ -91,20 +91,3 @@ impl U32ToU16 for u32 {
     }
 }
 
-pub fn parse_pcap(data : &[u8]) -> TcpSegment {
-    TcpSegment {
-        src_port        : [data[0x22], data[0x23]].iter().to_u16().unwrap(),
-        dest_port       : [data[0x24], data[0x25]].iter().to_u16().unwrap(),
-        seq_num         : [data[0x26],data[0x27],data[0x28],data[0x29]].iter()
-                          .to_u32().unwrap(),
-        ack_num         : [data[0x2A],data[0x2B],data[0x2C],data[0x2D]].iter()
-                          .to_u32().unwrap(),
-        data_off        : ((data[0x2E] & 0xF0)  >> 4) as u8,
-        ctrl_flags      : [(data[0x2E] & 0x0F), data[0x2F]].iter().to_u16().unwrap(),
-        window          : [data[0x30], data[0x31]].iter().to_u16().unwrap(),
-        checksum        : [data[0x32], data[0x33]].iter().to_u16().unwrap(),
-        urg_ptr         : [data[0x34], data[0x35]].iter().to_u16().unwrap(),
-        options         : vec!(TcpOpts::END),
-        data            : vec!(0, 1)
-    }
-}
