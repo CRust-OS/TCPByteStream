@@ -63,3 +63,4 @@ mod test_u32_to_u8 {
         assert_eq!(x.to_u8(), [0xDE, 0xAD, 0xBE, 0xEF]);
     }
 }
+
