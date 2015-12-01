@@ -12,3 +12,6 @@ c_flame: c_benchmark
 
 c_benchmark: test.c
 	gcc test.c -ltrace -O3 -o c_benchmark
+
+run_main: ../src/main.rs
+	cargo run --features=use_pcap -- ./100_packets.pcap 
