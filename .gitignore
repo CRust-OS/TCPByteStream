@@ -2,3 +2,11 @@ target
 *.swp
 *.swo
 a.out
+
+#Profiling information
+perf.*
+*.perf
+*.folded
+
+#Flame graphs
+*.svg
