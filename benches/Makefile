@@ -23,7 +23,7 @@ rust_benchmark.svg: rust_benchmark
 	$(FLAMEGRAPH_ROOT)/flamegraph.pl $(TMP)out.folded > rust_benchmark.svg
 
 rust_benchmark:
-	cargo build --release --features=use_pcap
+	cargo build --release 
 	cp $(PROJECT_ROOT)/target/release/tcp_byte_stream rust_benchmark
 
 c_benchmark: benches.c
