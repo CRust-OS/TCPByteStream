@@ -11,7 +11,6 @@ void iferr(libtrace_t *trace)
 	printf("Error: %s\n",err.problem);
 	exit(1);
 }
-
 void test(libtrace_packet_t** packets, int len) {
     int i = 0;
     while (i < len) {
@@ -62,8 +61,6 @@ int main(char** args) {
     }
 
     free(packets);
-
-    printf("RUNS: %d, total_ns: %ld\n", runs, total_ns);
     printf("Took %ld nanoseconds.\n", total_ns/runs);
 
 }
