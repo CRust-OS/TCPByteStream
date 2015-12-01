@@ -9,18 +9,18 @@ $(shell sudo chown $(USER) $(TMP))
 flame: c_benchmark.svg rust_benchmark.svg
 
 c_benchmark.svg: c_benchmark
-	sudo perf record -o $(TMP)/perf.data -F 10000 --call-graph dwarf -- ./c_benchmark 100_packets.pcap
-	sudo perf script -i $(TMP)/perf.data > $(TMP)/out.perf
+	perf record -o $(TMP)/perf.data -F 10000 -g -- ./c_benchmark 100_packets.pcap
+	perf script -i $(TMP)/perf.data > $(TMP)/out.perf
 	sudo chown $(USER) $(TMP)/out.perf
 	$(FLAMEGRAPH_ROOT)/stackcollapse-perf.pl $(TMP)/out.perf > $(TMP)/out.folded
 	$(FLAMEGRAPH_ROOT)/flamegraph.pl $(TMP)/out.folded > c_benchmark.svg
 
 rust_benchmark.svg: rust_benchmark
-	sudo perf record -o $(TMP)/perf.data -F 10000 --call-graph dwarf -- ./rust_benchmark 100_packets.pcap
-	sudo perf script -i $(TMP)/perf.data > $(TMP)/out.perf
+	perf record -o $(TMP)/perf.data -F 10000 -g -- ./rust_benchmark 100_packets.pcap
+	perf script -i $(TMP)/perf.data > $(TMP)/out.perf
 	sudo chown $(USER) $(TMP)/out.perf
-	$(FLAMEGRAPH_ROOT)/stackcollapse-perf.pl $(TMP)/out.perf > $(TMP)out.folded
-	$(FLAMEGRAPH_ROOT)/flamegraph.pl $(TMP)out.folded > rust_benchmark.svg
+	$(FLAMEGRAPH_ROOT)/stackcollapse-perf.pl $(TMP)/out.perf > $(TMP)/out.folded
+	$(FLAMEGRAPH_ROOT)/flamegraph.pl $(TMP)/out.folded > rust_benchmark.svg
 
 rust_benchmark:
 	cargo build --release --features=use_pcap
