@@ -1,2 +1,5 @@
-c_benchmark:
-	gcc test.c -ltrace -O3 -o c_benchmark
+c_benchmark: test.c
+	gcc test.c -g -ltrace -O3 -o c_benchmark
+
+clean: c_benchmark
+	rm c_benchmark
