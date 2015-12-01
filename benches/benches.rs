@@ -12,9 +12,9 @@ fn bench_pcap(b: &mut Bencher) {
     const IPV4_PACKET_TYPE : usize = 0x17;
     const TCP_PACKET : u8 = 6;
     
-    let mut cap = pcap::Capture::from_file("tests/100_packets.pcap").unwrap();
         
     b.iter(|| {
+       	let mut cap = pcap::Capture::from_file("tests/100_packets.pcap").unwrap();
         while let Ok(packet) = cap.next() {
             // skip any non-tcp packets
             if packet[IPV4_PACKET_TYPE] as u8 != TCP_PACKET {

@@ -24,21 +24,25 @@ int main(char** args) {
 	setvbuf(stdout, NULL, _IOLBF, 0);
 	printf("Starting...\n");
 
-	libtrace_t* trace = trace_create("pcap:100_packets.pcap");
-	iferr(trace);
-	trace_start(trace);
-
+	long int total_ns;
 	struct timespec start_time;
 	struct timespec end_time;
-	clock_gettime(CLOCK_MONOTONIC, &start_time);
-	int exit_code = test(trace);
-	clock_gettime(CLOCK_MONOTONIC, &end_time);
-	long int total_ns = (end_time.tv_sec - start_time.tv_sec) * 1000000000 + (end_time.tv_nsec - start_time.tv_nsec);
-
+	int exit_code = 0;
+	int i;
+	for (i = 0; i < 1000; i++) {
+		clock_gettime(CLOCK_MONOTONIC, &start_time);
+		libtrace_t* trace = trace_create("pcap:100_packets.pcap");
+		iferr(trace);
+		trace_start(trace);
+		exit_code = test(trace);
+		clock_gettime(CLOCK_MONOTONIC, &end_time);
+		total_ns += (end_time.tv_sec - start_time.tv_sec) * 1000000000 + (end_time.tv_nsec - start_time.tv_nsec);
+		if (exit_code != 0) break;
+	}
 	if (exit_code == 0) {
-		printf("Took %ld nanoseconds.\n", total_ns);
+		printf("Took %ld nanoseconds.\n", total_ns / 1000);
 	} else {
-		printf("Error! %d\n", exit_code);
+		printf("Error! %d on iter %d\n", exit_code, i);
 	}
 
 }
