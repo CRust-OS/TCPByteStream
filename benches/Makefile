@@ -27,7 +27,7 @@ rust_benchmark:
 	cp $(PROJECT_ROOT)/target/release/tcp_byte_stream rust_benchmark
 
 c_benchmark: benches.c
-	gcc benches.c -g -ltrace -O3 -o c_benchmark
+	gcc benches.c -g -ltrace -O2 -o c_benchmark
 
 clean:
 	rm *.svg
