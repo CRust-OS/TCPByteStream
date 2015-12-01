@@ -1,8 +1,8 @@
-extern crate tcp_byte_stream;
+extern crate tcp_parser;
 extern crate pcap;
 use std::env;
 
-use tcp_byte_stream::TcpSegment; 
+use tcp_parser::TcpSegment; 
 
 fn main() {
     const IPV4_START : u8 = 0x0E;

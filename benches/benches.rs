@@ -1,9 +1,9 @@
 #![feature(test)]
 extern crate test;
-extern crate tcp_byte_stream;
+extern crate tcp_parser;
 extern crate pcap;
 
-use tcp_byte_stream::TcpSegment; 
+use tcp_parser::TcpSegment; 
 use test::Bencher;
 
 #[bench]

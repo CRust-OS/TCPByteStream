@@ -1,5 +1,5 @@
 [root]
-name = "tcp_byte_stream"
+name = "tcp_parser"
 version = "0.1.0"
 dependencies = [
  "bitflags 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",

@@ -1,7 +1,7 @@
-extern crate tcp_byte_stream;
+extern crate tcp_parser;
 
 mod test_u8_to_u32 {
-    use tcp_byte_stream::util::U8ToU32;
+    use tcp_parser::util::U8ToU32;
 
     #[test]
     fn test_invalid_length_short(){
@@ -23,7 +23,7 @@ mod test_u8_to_u32 {
 }
 
 mod test_u8_to_u16 {
-    use tcp_byte_stream::util::U8ToU16;
+    use tcp_parser::util::U8ToU16;
 
     #[test]
     fn test_invalid_length_short() {
@@ -45,7 +45,7 @@ mod test_u8_to_u16 {
 }
 
 mod test_u16_to_u8 {
-    use tcp_byte_stream::util::U16ToU8;
+    use tcp_parser::util::U16ToU8;
 
     #[test]
     fn test_it_works(){
@@ -55,7 +55,7 @@ mod test_u16_to_u8 {
 } 
 
 mod test_u32_to_u8 {
-    use tcp_byte_stream::util::U32ToU8;
+    use tcp_parser::util::U32ToU8;
 
     #[test]
     fn test_it_works(){

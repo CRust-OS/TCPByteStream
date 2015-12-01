@@ -1,5 +1,5 @@
 [package]
-name = "tcp_byte_stream"
+name = "tcp_parser"
 version = "0.1.0"
 license = "MIT/Apache-2.0"
 authors = ["Scott Cooper <scott@sacooper.io>"]
@@ -26,3 +26,7 @@ features =["core"]
 default=["pcap"]
 core=[]
 # use_pcap=["pcap"]
+
+[[bin]]
+name = "tcp_byte_stream"
+doc = false
