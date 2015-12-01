@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include <libtrace.h>
 
@@ -20,7 +21,13 @@ int test(libtrace_t* trace) {
 	return psize;
 }
 
-int main(char** args) {
+int main(int argc, char* argv[]) {
+	if(argc != 2) { 
+		fprintf(stderr, "Missing *.pcap file path as argument");
+		exit(1);
+	}
+	char* filepath = argv[1];
+
 	setvbuf(stdout, NULL, _IOLBF, 0);
 	printf("Starting...\n");
 
@@ -31,6 +38,9 @@ int main(char** args) {
 	int i;
 	for (i = 0; i < 1000; i++) {
 		clock_gettime(CLOCK_MONOTONIC, &start_time);
+		char* trace_string = malloc(5 + strlen(filepath) + 1);
+		strcpy(trace_string, "pcap:");
+		strcat(trace_string, filepath);
 		libtrace_t* trace = trace_create("pcap:100_packets.pcap");
 		iferr(trace);
 		trace_start(trace);
@@ -44,5 +54,5 @@ int main(char** args) {
 	} else {
 		printf("Error! %d on iter %d\n", exit_code, i);
 	}
-
+	exit(exit_code);
 }

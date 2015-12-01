@@ -7,6 +7,9 @@ description = "Implementation of TCP, abstracted to reading byte stream"
 keywords = ["tcp", "networking"]
 readme = "README.md"
 
+[profile.release]
+debug = true
+
 [dependencies]
 bitflags = "~0.3.2"
 pcap = { version = "~0.5.0", optional = true}
