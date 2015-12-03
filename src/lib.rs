@@ -1,3 +1,7 @@
+//! # TCP Parser
+//! An implementation of parsing TCP in pure rust, with the ability
+//! to run on `libcore` via the `core` feature.
+
 #![cfg_attr(feature = "core", feature(no_std))]
 #![cfg_attr(feature = "core", feature(collections))]
 #![cfg_attr(feature = "core", no_std)]
@@ -14,7 +18,6 @@ extern crate collections;
 
 #[cfg(feature = "core")]
 mod std {
-    #[macro_use]
     pub use core::{fmt, iter, option, ops, slice, mem};
     pub use collections::{boxed, vec, string};
     pub mod prelude {
@@ -24,39 +27,56 @@ mod std {
 
 use std::vec::Vec;
 
-
 pub mod util;
 mod parser;
 use util::{U8ToU16, U8ToU32, U32ToU8, U16ToU8, U32ToU16};
 
-/// TCP Control flags, Only 9 bits needed
 bitflags! {
+    /// TCP Control flags, Only 9 bits needed
     flags TcpCTRL : u16 {
+        /// ECN-nonce concealment protection flag (experimental)
         const NS    = 0b100000000,
+        /// Congestion Window Reduced flag
         const CWR   = 0b010000000,
+        /// ECN Echo 
         const ECE   = 0b001000000,
+        /// Indicates urgent pointer field is significant
         const URG   = 0b000100000,
+        /// Indicated acknowledgement field is significant
         const ACK   = 0b000010000,
+        /// Push function: Push received data to the receiving application
         const PSH   = 0b000001000,
+        /// Reset flag: reset the connection
         const RST   = 0b000000100,
+        /// Synchronize sequence numbers 
         const SYN   = 0b000000010,
+        /// No more data from sender
         const FIN   = 0b000000001
     }
 }
 
 bitflags! {
+    /// TCP Options
     flags TcpOptFlags : u8 {
+        /// End option
         const END       = 0b00000000,
+        /// NoOp option
         const NOP       = 0b00000001,
+        /// Maximum Segment Size
         const MSS       = 0b00000010,
+        /// Window Scale
         const SCALE     = 0b00000011,
+        /// Selective Acknowledge Permitted
         const SACKPERM  = 0b00000100,
+        /// Selective Acknowledgement
         const SACK      = 0b00000101,
+        /// Timestmp
         const TIME      = 0b00001000
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+/// The set of possible TCP options
 pub enum TcpOpts {
     END,
     NOP,
@@ -130,21 +150,35 @@ impl TcpOptStream for Vec<TcpOpts> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+/// A TCP segment, which can either be parsed from data
+/// or created manually
 pub struct TcpSegment {
-    pub src_port        : u16,              // source port  
-    pub dest_port       : u16,              // dest port
-    pub seq_num         : u32,              // sequence number
-    pub ack_num         : u32,              // ACK number (only relevent if ACK is se
-    pub data_off        : u8,               // Data offset - in practice, only 4 bits, size of TCP header in 32-bit words
-    pub ctrl_flags      : u16,              // Control flags 
-    pub window          : u16,              // TCP Window size
-    pub checksum        : u16,              // TCP checksum
-    pub urg_ptr         : u16,              // Offset from seq num indicating the last urgen data byte
-    pub options         : Vec<TcpOpts>,     // TCP Options
-    pub data            : Vec<u8>           // application layer data
+    /// source port  
+    pub src_port        : u16,              
+    /// dest port
+    pub dest_port       : u16,              
+    /// sequence number
+    pub seq_num         : u32,              
+    /// acknowledge mnumber
+    pub ack_num         : u32,              
+    /// Data offset - in practice, only 4 bits, size of TCP header in 32-bit words
+    pub data_off        : u8,               
+    /// Control flags 
+    pub ctrl_flags      : u16,              
+    /// TCP Window size
+    pub window          : u16,              
+    /// TCP checksum
+    pub checksum        : u16,              
+    /// Offset from seq num indicating the last urgen data byte
+    pub urg_ptr         : u16,              
+    /// TCP Options
+    pub options         : Vec<TcpOpts>,     
+    /// application layer data
+    pub data            : Vec<u8>           
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+/// A pseudo-header for an IPv4 Packet
 pub struct IPv4PseudoHeader {
     pub source_addr : u32,
     pub dest_addr   : u32,
@@ -153,18 +187,26 @@ pub struct IPv4PseudoHeader {
 }
 
 // TODO: Add InvalidOption enum for better error messages
+#[allow(dead_code)]
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum TcpParseError {
+enum TcpParseError {
     InvalidLength,
     InvalidReserved,
     InvalidDataOffset,
     InvalidOption
 }
 
+/// A TCP segment that can be parsed from a byte stream, or manually built.
+///
+/// # Example
+/// ```rust
+/// use tcp_parser::TcpSegment;
+/// let data : Vec<u8> = vec![151, 116, 0, 80, 4, 12, 185, 160, 0, 0, 0, 0, 160, 2, 96, 224, 81, 
+///                           40, 0, 0, 2, 4, 4, 216, 4, 2, 8, 10, 1, 49,10,120,0,0,0,0,1,3,3,7];
+/// let segment = TcpSegment::parse(data);
+/// ```
 impl TcpSegment {
-
     /// Parse the given byte stream into a TcpSegment. At the moment, panicks on failure
-    /// TODO: Improve error messages
     pub fn parse<T : AsRef<[u8]>>(segment : T) -> TcpSegment {
         match parser::parse(segment.as_ref()) {
             nom::IResult::Done(_, seg) => seg,
@@ -172,10 +214,11 @@ impl TcpSegment {
         }
     }
 
+    /// Calculte the checksum using the provided pseudo header.
     pub fn calculate_checksum(&self, pseudo_header : IPv4PseudoHeader) -> u16 {
         let add_u16 = |sum: &mut u32, x: u16|{
             *sum = *sum + x as u32;
-            if (*sum & 0x80000000) != 0 {
+            if (*sum & 0x8000_0000) != 0 {
                 *sum = (*sum & 0xFFFF) + *sum >> 16;
             }
         };
@@ -221,6 +264,7 @@ impl TcpSegment {
         !((*sum & 0x0000FFFF) as u16)
     }
 
+    /// Create a bytestream from this segment
     pub fn as_bytestream(&self) -> Vec<u8> {
         let mut data = Vec::with_capacity(self.data.len() + (self.data_off as usize)*4);
         data.extend(self.src_port.to_u8().iter());
